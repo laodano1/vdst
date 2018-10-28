@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"strconv"
+	"time"
 )
 
 const Port  = ":3000"
@@ -45,7 +46,6 @@ func getMoviePaths(paths []string) []string {
 				}
 			} else {
 				if strings.HasSuffix(f.Name(), ".rmvb") ||
-				        strings.HasSuffix(f.Name(), ".mp4") || 
 					strings.HasSuffix(f.Name(), ".mkv") ||
 					strings.HasSuffix(f.Name(), ".avi") {
 					files = append(files, path.Join(pth, f.Name()))
@@ -68,6 +68,7 @@ func generateEntryPage(paths []string) map[int]string {
 
 func setLinkSimple(num int, vlink string) func( http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
+		log.Printf("--> '%s' is selected!\n", path.Base(vlink))
 		file, err := os.Open(vlink)
 		if err != nil {
 			log.Println(err.Error())
@@ -141,8 +142,17 @@ func setEntryPage(hypers []string) func(http.ResponseWriter, *http.Request) {
 }
 
 func main() {
+	// 检查端口是否被占用，如果占用，说明已经有instance了，那就只能reload config操作，
+	// 如果，没有被占用，那就执行全部初始化操作，然后启动整个instance
 
-	contents, err := ioutil.ReadFile("/home/pi/Documents/goProject/dir_list.cf")
+	year, month, day := time.Now().Date()
+	logFileName := fmt.Sprintf("Server-%d-%d-%d.log", year, month, day)
+	file, err := os.Create(logFileName)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	log.SetOutput(file)
+	contents, err := ioutil.ReadFile("dir_list.cf")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -152,11 +162,11 @@ func main() {
 	//con := []string {"/Users/sophia/my_files/Media"}
 	con := dirs
 	info := generateEntryPage(con)
-	serverIP := "192.168.1.99:3000"
-	//serverIP := "192.168.1.182:3000"
+	// 需要通过代码获取ip地址 ？？？
+	serverIP := "192.168.1.99" + Port
 	var hypers []string
 	for k, v := range info {
-		fmt.Printf("%d -> %s\n", k, v)
+		log.Printf("%d -> %s\n", k, v)
 		str := "<a href=\"http://" + serverIP + "/" + strconv.Itoa(k) + "\">" + path.Base(v) + "</a>"
 		hypers = append(hypers, str)
 		http.HandleFunc("/" + strconv.Itoa(k), setLinkSimple(k, v))
@@ -165,5 +175,7 @@ func main() {
 
 	//http.HandleFunc("/", handler4Root)
 	http.HandleFunc("/", setEntryPage(hypers))
+
+	fmt.Println("Start to Listen on " + Port)
 	log.Fatal(http.ListenAndServe(Port, nil))
 }
