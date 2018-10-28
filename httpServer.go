@@ -11,10 +11,9 @@ import (
 	"io/ioutil"
 	"strings"
 	"strconv"
-	"time"
 )
 
-const Port  = ":3000"
+
 
 //func handler4Root(res http.ResponseWriter, req *http.Request)  {
 //	//fmt.Fprint(res, "Hello world!")
@@ -141,24 +140,11 @@ func main() {
 	// 检查端口是否被占用，如果占用，说明已经有instance了，那就只能reload config操作，
 	// 如果，没有被占用，那就执行全部初始化操作，然后启动整个instance
 
-	year, month, day := time.Now().Date()
-	logFileName := fmt.Sprintf("Server-%d-%d-%d.log", year, month, day)
-	file, err := os.Create(logFileName)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	log.SetOutput(file)
-	contents, err := ioutil.ReadFile("dir_list.cf")
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	dirs := strings.Split(string(contents), "\n")
-
-	con := dirs
+	LogModuleInit()
+	con := ConfigInit()
 	info := generateEntryPage(con)
-	// 需要通过代码获取ip地址 ？？？
-	serverIP := "192.168.1.99" + Port
+
+	serverIP := GetLocalIpAddr()
 
 	var hypers []string
 	for k, v := range info {
