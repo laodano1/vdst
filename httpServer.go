@@ -16,20 +16,18 @@ import (
 
 const Port  = ":3000"
 
-func handler4Root(res http.ResponseWriter, req *http.Request)  {
-	//fmt.Fprint(res, "Hello world!")
-
-	//file, err := os.Open("/Users/sophia/my_files/Media/[阳光电影www.ygdy8.com].破·局.HD.720p.国语中字.mkv")
-	file, err := os.Open("/Users/sophia/my_files/Media/[阳光电影www.ygdy8.com].神偷奶爸3.HD.720p.中英双字幕.rmvb")
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	reader := bufio.NewReader(file)
-	io.Copy(res, reader)
-
-	//res.Write()
-}
+//func handler4Root(res http.ResponseWriter, req *http.Request)  {
+//	//fmt.Fprint(res, "Hello world!")
+//
+//	if err != nil {
+//		log.Println(err.Error())
+//	}
+//
+//	reader := bufio.NewReader(file)
+//	io.Copy(res, reader)
+//
+//	//res.Write()
+//}
 
 func getMoviePaths(paths []string) []string {
 	var files []string
@@ -126,8 +124,6 @@ func setLink(k int, v string) func( http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		//reader := bufio.NewReader(file)
-		//io.Copy(res, reader)
 	}
 }
 
@@ -159,21 +155,19 @@ func main() {
 
 	dirs := strings.Split(string(contents), "\n")
 
-	//con := []string {"/Users/sophia/my_files/Media"}
 	con := dirs
 	info := generateEntryPage(con)
 	// 需要通过代码获取ip地址 ？？？
 	serverIP := "192.168.1.99" + Port
+
 	var hypers []string
 	for k, v := range info {
 		log.Printf("%d -> %s\n", k, v)
 		str := "<a href=\"http://" + serverIP + "/" + strconv.Itoa(k) + "\">" + path.Base(v) + "</a>"
 		hypers = append(hypers, str)
 		http.HandleFunc("/" + strconv.Itoa(k), setLinkSimple(k, v))
-		//http.HandleFunc("/" + strconv.Itoa(k), setLink(k, v))
 	}
 
-	//http.HandleFunc("/", handler4Root)
 	http.HandleFunc("/", setEntryPage(hypers))
 
 	fmt.Println("Start to Listen on " + Port)
