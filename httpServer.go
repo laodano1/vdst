@@ -155,7 +155,9 @@ func setEntryPage(hypers []string) func(http.ResponseWriter, *http.Request) {
 func PortUsed() bool {
 	var isUsed bool = false
 
-	_, err := net.Listen("tcp", Port)
+	ln, err := net.Listen("tcp", Port)
+	ln.Close()
+
 	if err != nil {
 		fmt.Println(err.Error())
 		if strings.Contains(err.Error(), "Only one usage of each socket address") {
