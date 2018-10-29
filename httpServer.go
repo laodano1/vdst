@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"strings"
 	"strconv"
+	"flag"
+	"net"
 )
 
 
@@ -30,7 +32,19 @@ import (
 
 func getMoviePaths(paths []string) []string {
 	var files []string
+	count := 0
 	for _, pth := range paths {
+		// check whether all path are empty
+		if strings.TrimSpace(pth) == "" {
+			count++
+			//fmt.Printf("count: %d, len: %d\n", count, len(paths))
+			if count == len(paths) {
+				fmt.Println("ERROR: Each path item are empty in config file.")
+				log.Fatal("Each path item are empty in config file.")
+			}
+			continue
+		}
+
 		fds, err := ioutil.ReadDir(pth)
 		if err != nil {
 			log.Println(err.Error())
@@ -44,6 +58,7 @@ func getMoviePaths(paths []string) []string {
 			} else {
 				if strings.HasSuffix(f.Name(), ".rmvb") ||
 					strings.HasSuffix(f.Name(), ".mkv") ||
+					strings.HasSuffix(f.Name(), ".mp4") ||
 					strings.HasSuffix(f.Name(), ".avi") {
 					files = append(files, path.Join(pth, f.Name()))
 				}
@@ -136,26 +151,75 @@ func setEntryPage(hypers []string) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+// check if the port is used
+func PortUsed() bool {
+	var isUsed bool = false
+
+	_, err := net.Listen("tcp", Port)
+	if err != nil {
+		fmt.Println(err.Error())
+		if strings.Contains(err.Error(), "Only one usage of each socket address") {
+			isUsed = true
+		} else {
+			log.Fatal(err.Error())
+			//os.Exit(-1)
+		}
+	}
+
+	return isUsed
+}
+
+// handle customized signal
+//func signalHandler(sig string, channel chan string) {
+//	signal.Notify()
+//}
+
 func main() {
 	// 检查端口是否被占用，如果占用，说明已经有instance了，那就只能reload config操作，
 	// 如果，没有被占用，那就执行全部初始化操作，然后启动整个instance
 
-	LogModuleInit()
-	con := ConfigInit()
-	info := generateEntryPage(con)
+	//sch := make(chan string, 1)
+	var sOpt string
+	flag.StringVar(&sOpt, "-s", "reload", "send signal to the master process: stop, quit, reopen, reload")
 
-	serverIP := GetLocalIpAddr()
+	// if port is not used, do the initialization work,
+	// else, do the stop, quit, reopen, reload work
+	switch PortUsed() {
+	case false :
+		LogModuleInit()
+		con := ConfigInit()
+		info := generateEntryPage(con)
 
-	var hypers []string
-	for k, v := range info {
-		log.Printf("%d -> %s\n", k, v)
-		str := "<a href=\"http://" + serverIP + "/" + strconv.Itoa(k) + "\">" + path.Base(v) + "</a>"
-		hypers = append(hypers, str)
-		http.HandleFunc("/" + strconv.Itoa(k), setLinkSimple(k, v))
+		//serverIP := GetLocalIpAddr()
+		serverIPs := GetLocalIpAddrs()
+		var ipAddv4 string    // local ip v4 address
+
+		if serverIPs["wireless_ipv4"] != "" {
+			ipAddv4 = serverIPs["wireless_ipv4"]
+		} else {
+			ipAddv4 = serverIPs["eth_ipv4"]
+		}
+
+		if ipAddv4 == "" {
+			log.Fatal("Cannot find local ip address!")
+		}
+
+		fmt.Printf("server ip: %s\n", ipAddv4)
+		var hypers []string
+		for k, v := range info {
+			log.Printf("%d -> %s\n", k, v)
+			str := "<a href=\"http://" + ipAddv4 + Port + "/" + strconv.Itoa(k) + "\">" + path.Base(v) + "</a>"
+			hypers = append(hypers, str)
+			http.HandleFunc("/" + strconv.Itoa(k), setLinkSimple(k, v))
+		}
+
+		http.HandleFunc("/", setEntryPage(hypers))
+
+		fmt.Printf("Start to Listen on '%s%s'\n", ipAddv4, Port)
+		log.Fatal(http.ListenAndServe(Port, nil))
+	case true :
+		fmt.Println("port is used!")
 	}
 
-	http.HandleFunc("/", setEntryPage(hypers))
 
-	fmt.Println("Start to Listen on " + Port)
-	log.Fatal(http.ListenAndServe(Port, nil))
 }

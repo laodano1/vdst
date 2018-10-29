@@ -5,50 +5,76 @@ import (
 	"net"
 	"strings"
 	"runtime"
+	"strconv"
 )
 
 const Port = ":3000"
 
-//func GetLocalIPAddr()  {
-func GetLocalIpAddr() string {
-	localIpv4Addr := ""
-	ifaces, err := net.Interfaces()
-	//ifaces, err := net.InterfaceAddrs()
+func GetIFAddr(iface net.Interface, ifAdds *map[string]string)  {
+	//var ipadd net.Addr
+	tempAddsRef := *ifAdds
+
+	//fmt.Printf("==> network interface: %s \n", iface.Name)
+	adds, err := iface.Addrs()
 	if err != nil {
 		log.Println(err.Error())
 	}
 
+	for idx, add := range adds {
+		//fmt.Printf("ip: %s\n", add)
+		ipInfo := strings.Split(add.String(), "/")
+		ifName := strings.Replace(iface.Name, " ", "", -1)
+		tempAddsRef[strings.ToLower(ifName)  + "_" + strconv.Itoa(idx)] = ipInfo[0]
+	}
+	//fmt.Printf("ipv4: %s\n", ipInfo[0])
+}
+
+// get all ip addr and fill follow 'map[ip version]ip address' format
+func GetIPv4Addr(ifAdds map[string]string, ipAdds *map[string]string)  {
+	tempAdds := *ipAdds
+	for k, v := range ifAdds {
+		if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en")) && strings.HasSuffix(k, "_1") {
+			tempAdds["eth_ipv4"] = v
+		} else if strings.HasPrefix(k, "wireless") && strings.HasSuffix(k, "_1") {
+			tempAdds["wireless_ipv4"] = v
+		}
+	}
+}
+
+// get all local ip v4 addresses
+func GetLocalIpAddrs() map[string]string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	ifAdds := make(map[string]string)
+	ipAdds := make(map[string]string)
+
 	//fmt.Printf("OS type: %s\n", runtime.GOOS)
-	FoundLocalIPV4Addr := false // found local ipv4 address or not, default false
+	//FoundLocalIPV4Addr := false // found local ipv4 address or not, default false
 	for _, iface := range ifaces {
 		//fmt.Printf("-------> %s \n", iface.Name)
 		if strings.ToLower(runtime.GOOS) == "darwin" { // Mac system
 			//log.Printf("This is '%s' environment.", runtime.GOOS)
-			if iface.Name == "en0" {
-				adds, err := iface.Addrs()
-				if err != nil {
-					log.Println(err.Error())
-				}
+			if strings.HasPrefix(strings.ToLower(iface.Name), "wireless") ||
+				strings.HasPrefix(strings.ToLower(iface.Name), "en") {
 
-				for _, add := range adds {
-					if strings.HasPrefix(add.String(), "192") {
-						//fmt.Printf("%s\n", add)
-						strs := strings.Split(add.String(), "/")
-						log.Printf("interface: '%s', ip: '%s'", iface.Name, strs[0])
-						localIpv4Addr = strs[0]
-						FoundLocalIPV4Addr = true
-						break
-					}
-				}
+				GetIFAddr(iface, &ifAdds)
+			}
 
-				if FoundLocalIPV4Addr {
-					break
-				}
+		} else if strings.ToLower(runtime.GOOS) == "windows" {
+			if strings.HasPrefix(strings.ToLower(iface.Name), "wireless") ||
+				strings.HasPrefix(strings.ToLower(iface.Name), "local") {
+
+				GetIFAddr(iface, &ifAdds)
 			}
 		}
 	}
 
-	return localIpv4Addr
+	GetIPv4Addr(ifAdds, &ipAdds)
+
+	return ipAdds
 }
 
 //func LocalIpAddrGet() string {
