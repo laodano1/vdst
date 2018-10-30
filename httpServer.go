@@ -20,6 +20,7 @@ import (
 
 
 var currentPid int
+var existedPid int
 
 func getMoviePaths(paths []string) []string {
 	var files []string
@@ -175,18 +176,31 @@ func CreatePidFile()  {
 	}
 }
 
-
-func RemovePidFile(filename string) {
+func PidFileExisted(filename string) bool {
+	flag := true
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Println(err.Error())
+		flag = false
 	} else {
 		f.Close()
+	}
+
+	return flag
+}
+
+
+func RemovePidFile(filename string) {
+	//f, err := os.Open(filename)
+	if PidFileExisted(filename) {
+		//f.Close()
 		err := os.Remove(filename)
 		if err != nil {
 			log.Println(err.Error())
 			fmt.Println("ERROR: Remove .pid file failed! Please remove it manually!")
 		}
+	} else {
+		fmt.Printf("'%s' does not exist!\n", filename)
 	}
 }
 
@@ -211,6 +225,7 @@ func GetExistedPid() int {
 			break
 		}
 	}
+
 	// if pid file is not found, find it manually.
 	if PortUsed() {
 		if !found {
@@ -218,14 +233,16 @@ func GetExistedPid() int {
 		}
 	}
 
+	existedPid = pid
 	return pid
 }
 
 func SendSpecificSignal(sig os.Signal) {
-	pr, err := os.FindProcess(GetExistedPid())
+	pr, err := os.FindProcess(existedPid)
 	if err != nil {
 		log.Println(err.Error())
 	}
+	fmt.Printf("send signal to pid: '%d'\n", pr.Pid)
 	err = pr.Signal(sig)
 	if err != nil {
 		log.Println(err.Error())
@@ -256,19 +273,23 @@ func main() {
 		}
 	}()
 
+	GetExistedPid()
+
 	// if port is not used, do the initialization work,
 	// else, do the stop, quit, reload work
 	switch PortUsed() {
 	case false :
-		fmt.Printf("pid: '%d'\n", os.Getpid())
-		log.Printf("pid: '%d'\n", os.Getpid())
+		fmt.Printf("pid: '%d'\n", existedPid)
+		log.Printf("pid: '%d'\n", existedPid)
 
 		LogModuleInit()
 		con := ConfigInit()
 		info := generateEntryPage(con)
 
 		// remove pid file created on last time
-		RemovePidFile( strconv.Itoa(GetExistedPid()) + ".pid.vdst" )
+		if PidFileExisted(strconv.Itoa(existedPid) + ".pid.vdst" ) {
+			RemovePidFile( strconv.Itoa(existedPid) + ".pid.vdst" )
+		}
 
 		serverIPs := GetLocalIpAddrs()
 		var ipAddv4 string    // local ip v4 address
@@ -309,15 +330,15 @@ func main() {
 		switch sOpt {
 		case "exit" :
 			RemovePidFile(strconv.Itoa(currentPid) + ".pid.vdst")
-			pid2 := GetExistedPid()
-			log.Printf("stop option received! Exist process %d!", pid2)
+			pid2 := existedPid
+			log.Printf("stop option -> received! Exit process '%d'!", pid2)
 			SendSpecificSignal(syscall.SIGQUIT)
 			goto end
 
 		case "reload" :
 			log.Println("Get reload signal.")
-			//pid1 := GetExistedPid()
-			log.Printf("reload config file '%s'\n", configFileName)
+			//pid1 := existedPid
+			log.Printf("reload option -> received. Reload config file '%s'\n", configFileName)
 			SendSpecificSignal(syscall.SIGHUP)
 			goto end
 		default:
