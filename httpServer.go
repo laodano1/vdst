@@ -21,19 +21,6 @@ import (
 
 var currentPid int
 
-//func handler4Root(res http.ResponseWriter, req *http.Request)  {
-//	//fmt.Fprint(res, "Hello world!")
-//
-//	if err != nil {
-//		log.Println(err.Error())
-//	}
-//
-//	reader := bufio.NewReader(file)
-//	io.Copy(res, reader)
-//
-//	//res.Write()
-//}
-
 func getMoviePaths(paths []string) []string {
 	var files []string
 	count := 0
@@ -160,16 +147,16 @@ func PortUsed() bool {
 	var isUsed bool = false
 
 	ln, err := net.Listen("tcp", Port)
-	ln.Close()
-
 	if err != nil {
-		fmt.Println(err.Error())
-		if strings.Contains(err.Error(), "Only one usage of each socket address") {
+		//fmt.Println(err.Error())
+		if strings.Contains(err.Error(), "Only one usage of each socket address") || strings.Contains(err.Error(), "address already in use") 	{
 			isUsed = true
 		} else {
 			log.Fatal(err.Error())
 			//os.Exit(-1)
 		}
+	} else {
+		ln.Close()
 	}
 
 	return isUsed
@@ -190,10 +177,11 @@ func CreatePidFile()  {
 
 
 func RemovePidFile(filename string) {
-	_, err := os.Open(filename)
+	f, err := os.Open(filename)
 	if err != nil {
 		log.Println(err.Error())
 	} else {
+		f.Close()
 		err := os.Remove(filename)
 		if err != nil {
 			log.Println(err.Error())
@@ -247,16 +235,18 @@ func SendSpecificSignal(sig os.Signal) {
 func main() {
 	//sch := make(chan string, 1)
 	var sOpt string
-	flag.StringVar(&sOpt, "-s", "reload", "send signal to the master process: stop, quit, exit, reload")
+	flag.StringVar(&sOpt, "s", "reload", "send signal to the master process: stop, quit, exit, reload")
 	flag.Parse()
 
 	sOpt = strings.ToLower(sOpt)
+	if sOpt == "exit" || sOpt == "quit" || sOpt == "stop" {
+		sOpt = "exit"
+	}
 
 	sch := make(chan os.Signal, 1)
 	errch := make(chan error, 1)
 
-	fmt.Printf("pid: '%d'\n", os.Getpid())
-	log.Printf("pid: '%d'\n", os.Getpid())
+
 	signal.Notify(sch)   // redirect all signals to sch channel
 
 	go func() {
@@ -270,6 +260,9 @@ func main() {
 	// else, do the stop, quit, reload work
 	switch PortUsed() {
 	case false :
+		fmt.Printf("pid: '%d'\n", os.Getpid())
+		log.Printf("pid: '%d'\n", os.Getpid())
+
 		LogModuleInit()
 		con := ConfigInit()
 		info := generateEntryPage(con)
@@ -314,21 +307,19 @@ func main() {
 	case true :
 		fmt.Println("port is used!")
 		switch sOpt {
-
-		case "quit" :
 		case "exit" :
-		case "stop" :
 			RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
 			pid2 := GetExistedPid()
 			log.Printf("stop option received! Exist process %d!", pid2)
 			SendSpecificSignal(syscall.SIGQUIT)
+			goto end
 
 		case "reload" :
 			log.Println("Get reload signal.")
 			//pid1 := GetExistedPid()
 			log.Printf("reload config file '%s'\n", configFileName)
 			SendSpecificSignal(syscall.SIGHUP)
-
+			goto end
 		default:
 			log.Printf("Unkown option: '%s'!", sOpt)
 		}

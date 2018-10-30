@@ -34,11 +34,20 @@ func GetIFAddr(iface net.Interface, ifAdds *map[string]string)  {
 func GetIPv4Addr(ifAdds map[string]string, ipAdds *map[string]string)  {
 	tempAdds := *ipAdds
 	for k, v := range ifAdds {
-		if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en") ||  strings.HasPrefix(k, "eth")) && strings.HasSuffix(k, "_1") {
-			tempAdds["eth_ipv4"] = v
-		} else if strings.HasPrefix(k, "wireless") && strings.HasSuffix(k, "_1") {
-			tempAdds["wireless_ipv4"] = v
+		if runtime.GOOS == "linux" {
+			if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en") ||  strings.HasPrefix(k, "eth")) && strings.HasSuffix(k, "_0") {
+				tempAdds["eth_ipv4"] = v
+			} else if strings.HasPrefix(k, "wireless") && strings.HasSuffix(k, "_0") {
+				tempAdds["wireless_ipv4"] = v
+			}
+		} else {
+			if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en") ||  strings.HasPrefix(k, "eth")) && strings.HasSuffix(k, "_1") {
+				tempAdds["eth_ipv4"] = v
+			} else if strings.HasPrefix(k, "wireless") && strings.HasSuffix(k, "_1") {
+				tempAdds["wireless_ipv4"] = v
+			}
 		}
+
 	}
 }
 
