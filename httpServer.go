@@ -224,17 +224,33 @@ func GetExistedPid() int {
 		}
 	}
 	// if pid file is not found, find it manually.
-	if !found {
-		log.Println("Not found .pid.vdst file. Please find the pid and create a new one manually!")
+	if PortUsed() {
+		if !found {
+			log.Println("Not found .pid.vdst file. Please find the pid and create a new one manually!")
+		}
 	}
 
 	return pid
 }
 
+func SendSpecificSignal(sig os.Signal) {
+	pr, err := os.FindProcess(GetExistedPid())
+	if err != nil {
+		log.Println(err.Error())
+	}
+	err = pr.Signal(sig)
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
+
 func main() {
 	//sch := make(chan string, 1)
 	var sOpt string
-	flag.StringVar(&sOpt, "-s", "reload", "send signal to the master process: stop, quit, reopen, reload")
+	flag.StringVar(&sOpt, "-s", "reload", "send signal to the master process: stop, quit, exit, reload")
+	flag.Parse()
+
+	sOpt = strings.ToLower(sOpt)
 
 	sch := make(chan os.Signal, 1)
 	errch := make(chan error, 1)
@@ -298,15 +314,20 @@ func main() {
 	case true :
 		fmt.Println("port is used!")
 		switch sOpt {
-		case "reload" :
-			log.Println("Get reload signal.")
-			//pid1 := GetExistedPid()
-			log.Printf("reload config file '%s'\n", configFileName)
 
+		case "quit" :
+		case "exit" :
 		case "stop" :
 			RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
 			pid2 := GetExistedPid()
 			log.Printf("stop option received! Exist process %d!", pid2)
+			SendSpecificSignal(syscall.SIGQUIT)
+
+		case "reload" :
+			log.Println("Get reload signal.")
+			//pid1 := GetExistedPid()
+			log.Printf("reload config file '%s'\n", configFileName)
+			SendSpecificSignal(syscall.SIGHUP)
 
 		default:
 			log.Printf("Unkown option: '%s'!", sOpt)
@@ -323,7 +344,8 @@ func main() {
 				fmt.Printf("INFO: signal '%v' from channel.\n", sig)
 
 			} else if sig == syscall.SIGTERM || sig == syscall.SIGKILL || sig == syscall.SIGQUIT || sig == syscall.SIGINT {
-				fmt.Printf("INFO: signal '%v' from channel. Exit the process!\n", sig)
+				fmt.Printf("INFO: signal '%v' got. Exit the process!\n", sig)
+				RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
 				goto end
 			} else {
 				fmt.Printf("WARN: signal '%v' received!\n", sig)

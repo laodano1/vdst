@@ -6,6 +6,7 @@ import (
 	"strings"
 	"runtime"
 	"strconv"
+	"fmt"
 )
 
 const Port = ":3000"
@@ -33,7 +34,7 @@ func GetIFAddr(iface net.Interface, ifAdds *map[string]string)  {
 func GetIPv4Addr(ifAdds map[string]string, ipAdds *map[string]string)  {
 	tempAdds := *ipAdds
 	for k, v := range ifAdds {
-		if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en")) && strings.HasSuffix(k, "_1") {
+		if (strings.HasPrefix(k, "local") ||  strings.HasPrefix(k, "en") ||  strings.HasPrefix(k, "eth")) && strings.HasSuffix(k, "_1") {
 			tempAdds["eth_ipv4"] = v
 		} else if strings.HasPrefix(k, "wireless") && strings.HasSuffix(k, "_1") {
 			tempAdds["wireless_ipv4"] = v
@@ -51,14 +52,14 @@ func GetLocalIpAddrs() map[string]string {
 	ifAdds := make(map[string]string)
 	ipAdds := make(map[string]string)
 
-	//fmt.Printf("OS type: %s\n", runtime.GOOS)
+	fmt.Printf("OS type: %s\n", runtime.GOOS)
 	//FoundLocalIPV4Addr := false // found local ipv4 address or not, default false
 	for _, iface := range ifaces {
 		//fmt.Printf("-------> %s \n", iface.Name)
 		if strings.ToLower(runtime.GOOS) == "darwin" { // Mac system
 			//log.Printf("This is '%s' environment.", runtime.GOOS)
 			if strings.HasPrefix(strings.ToLower(iface.Name), "wireless") ||
-				strings.HasPrefix(strings.ToLower(iface.Name), "en") {
+				strings.HasPrefix(strings.ToLower(iface.Name), "en")  {
 
 				GetIFAddr(iface, &ifAdds)
 			}
@@ -66,6 +67,12 @@ func GetLocalIpAddrs() map[string]string {
 		} else if strings.ToLower(runtime.GOOS) == "windows" {
 			if strings.HasPrefix(strings.ToLower(iface.Name), "wireless") ||
 				strings.HasPrefix(strings.ToLower(iface.Name), "local") {
+
+				GetIFAddr(iface, &ifAdds)
+			}
+		}  else if strings.ToLower(runtime.GOOS) == "linux" {
+			if strings.HasPrefix(strings.ToLower(iface.Name), "wireless") ||
+				strings.HasPrefix(strings.ToLower(iface.Name), "eth") {
 
 				GetIFAddr(iface, &ifAdds)
 			}
