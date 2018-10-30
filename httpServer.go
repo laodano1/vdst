@@ -13,9 +13,13 @@ import (
 	"strconv"
 	"flag"
 	"net"
+	"os/signal"
+	"time"
+	"syscall"
 )
 
 
+var currentPid int
 
 //func handler4Root(res http.ResponseWriter, req *http.Request)  {
 //	//fmt.Fprint(res, "Hello world!")
@@ -176,23 +180,87 @@ func PortUsed() bool {
 //	signal.Notify()
 //}
 
-func main() {
-	// 检查端口是否被占用，如果占用，说明已经有instance了，那就只能reload config操作，
-	// 如果，没有被占用，那就执行全部初始化操作，然后启动整个instance
+func CreatePidFile()  {
+	currentPid = os.Getpid()
+	_, err := os.Create(strconv.Itoa(currentPid) + ".pid.vdst")
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
 
+
+func RemovePidFile(filename string) {
+	_, err := os.Open(filename)
+	if err != nil {
+		log.Println(err.Error())
+	} else {
+		err := os.Remove(filename)
+		if err != nil {
+			log.Println(err.Error())
+			fmt.Println("ERROR: Remove .pid file failed! Please remove it manually!")
+		}
+	}
+}
+
+// get existed instance pid
+func GetExistedPid() int {
+	dir, err := ioutil.ReadDir(".")
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	found := false
+	var pid int
+	for _, f := range dir {
+		if !f.IsDir() && strings.HasSuffix(f.Name(), ".pid.vdst") {
+			found = true
+
+			strs := strings.Split(f.Name(), ".")
+			pid, err = strconv.Atoi(strs[0])
+			if err != nil {
+				log.Println(err.Error())
+			}
+			break
+		}
+	}
+	// if pid file is not found, find it manually.
+	if !found {
+		log.Println("Not found .pid.vdst file. Please find the pid and create a new one manually!")
+	}
+
+	return pid
+}
+
+func main() {
 	//sch := make(chan string, 1)
 	var sOpt string
 	flag.StringVar(&sOpt, "-s", "reload", "send signal to the master process: stop, quit, reopen, reload")
 
+	sch := make(chan os.Signal, 1)
+	errch := make(chan error, 1)
+
+	fmt.Printf("pid: '%d'\n", os.Getpid())
+	log.Printf("pid: '%d'\n", os.Getpid())
+	signal.Notify(sch)   // redirect all signals to sch channel
+
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
+			sch <- syscall.SIGALRM
+		}
+	}()
+
 	// if port is not used, do the initialization work,
-	// else, do the stop, quit, reopen, reload work
+	// else, do the stop, quit, reload work
 	switch PortUsed() {
 	case false :
 		LogModuleInit()
 		con := ConfigInit()
 		info := generateEntryPage(con)
 
-		//serverIP := GetLocalIpAddr()
+		// remove pid file created on last time
+		RemovePidFile( strconv.Itoa(GetExistedPid()) + ".pid.vdst" )
+
 		serverIPs := GetLocalIpAddrs()
 		var ipAddv4 string    // local ip v4 address
 
@@ -207,6 +275,10 @@ func main() {
 		}
 
 		fmt.Printf("server ip: %s\n", ipAddv4)
+
+		// create a .pid file to save pid, which will be used by signal handler.
+		CreatePidFile()
+
 		var hypers []string
 		for k, v := range info {
 			log.Printf("%d -> %s\n", k, v)
@@ -218,10 +290,49 @@ func main() {
 		http.HandleFunc("/", setEntryPage(hypers))
 
 		fmt.Printf("Start to Listen on '%s%s'\n", ipAddv4, Port)
-		log.Fatal(http.ListenAndServe(Port, nil))
+
+		go func() {
+			errch <- http.ListenAndServe(Port, nil)
+		}()
+
 	case true :
 		fmt.Println("port is used!")
+		switch sOpt {
+		case "reload" :
+			log.Println("Get reload signal.")
+			//pid1 := GetExistedPid()
+			log.Printf("reload config file '%s'\n", configFileName)
+
+		case "stop" :
+			RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
+			pid2 := GetExistedPid()
+			log.Printf("stop option received! Exist process %d!", pid2)
+
+		default:
+			log.Printf("Unkown option: '%s'!", sOpt)
+		}
 	}
 
+	for {
+		select {
+		case err := <-errch:
+			log.Fatal(err)
+
+		case sig := <-sch:
+			if sig == syscall.SIGHUP {
+				fmt.Printf("INFO: signal '%v' from channel.\n", sig)
+
+			} else if sig == syscall.SIGTERM || sig == syscall.SIGKILL || sig == syscall.SIGQUIT || sig == syscall.SIGINT {
+				fmt.Printf("INFO: signal '%v' from channel. Exit the process!\n", sig)
+				goto end
+			} else {
+				fmt.Printf("WARN: signal '%v' received!\n", sig)
+			}
+		}
+	}
+
+	end:
+	fmt.Println("INFO: Bye bye! :)")
+	log.Println("INFO: Bye bye! :)")
 
 }
