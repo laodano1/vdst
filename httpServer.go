@@ -308,7 +308,7 @@ func main() {
 		fmt.Println("port is used!")
 		switch sOpt {
 		case "exit" :
-			RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
+			RemovePidFile(strconv.Itoa(currentPid) + ".pid.vdst")
 			pid2 := GetExistedPid()
 			log.Printf("stop option received! Exist process %d!", pid2)
 			SendSpecificSignal(syscall.SIGQUIT)
@@ -336,7 +336,7 @@ func main() {
 
 			} else if sig == syscall.SIGTERM || sig == syscall.SIGKILL || sig == syscall.SIGQUIT || sig == syscall.SIGINT {
 				fmt.Printf("INFO: signal '%v' got. Exit the process!\n", sig)
-				RemovePidFile(strconv.Itoa(currentPid) + "pid.vdst")
+				RemovePidFile(strconv.Itoa(currentPid) + ".pid.vdst")
 				goto end
 			} else {
 				fmt.Printf("WARN: signal '%v' received!\n", sig)
