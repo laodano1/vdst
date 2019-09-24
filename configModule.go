@@ -6,12 +6,9 @@ import (
 	"strings"
 )
 
-
 const configFileName = "dir_list.cf"
 
-var cfgCh = make(chan int)    // channel for signal
-
-
+var cfgCh = make(chan int) // channel for signal
 
 // parse config file and return path array
 func ConfigInit() []string {

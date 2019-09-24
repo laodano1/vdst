@@ -1,23 +1,22 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"os"
 	"bufio"
-	"io"
-	"path"
-	"fmt"
-	"io/ioutil"
-	"strings"
-	"strconv"
 	"flag"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"net"
+	"net/http"
+	"os"
 	"os/signal"
-	"time"
+	"path"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 )
-
 
 var currentPid int
 var existedPid int
@@ -44,7 +43,7 @@ func getMoviePaths(paths []string) []string {
 
 		for _, f := range fds {
 			if f.IsDir() { // folder
-				for _, pt := range getMoviePaths( []string{ path.Join(pth, f.Name()) } ) {
+				for _, pt := range getMoviePaths([]string{path.Join(pth, f.Name())}) {
 					files = append(files, pt)
 				}
 			} else {
@@ -70,7 +69,7 @@ func generateEntryPage(paths []string) map[int]string {
 	return info
 }
 
-func setLinkSimple(num int, vlink string) func( http.ResponseWriter, *http.Request) {
+func setLinkSimple(num int, vlink string) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		log.Printf("--> '%s' is selected!\n", path.Base(vlink))
 		file, err := os.Open(vlink)
@@ -82,7 +81,7 @@ func setLinkSimple(num int, vlink string) func( http.ResponseWriter, *http.Reque
 	}
 }
 
-func setLink(k int, v string) func( http.ResponseWriter, *http.Request) {
+func setLink(k int, v string) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		file, err := os.Open(v)
 		if err != nil {
@@ -104,9 +103,9 @@ func setLink(k int, v string) func( http.ResponseWriter, *http.Request) {
 
 		fmt.Printf("file size: %d", info.Size())
 
-		if start < 0 ||start >= info.Size() ||end < 0 || end >= info.Size(){
+		if start < 0 || start >= info.Size() || end < 0 || end >= info.Size() {
 			res.WriteHeader(http.StatusBadRequest)
-			res.Write([]byte(fmt.Sprintf("out of index, length:%d",info.Size())))
+			res.Write([]byte(fmt.Sprintf("out of index, length:%d", info.Size())))
 			return
 		}
 
@@ -150,7 +149,7 @@ func PortUsed() bool {
 	ln, err := net.Listen("tcp", Port)
 	if err != nil {
 		//fmt.Println(err.Error())
-		if strings.Contains(err.Error(), "Only one usage of each socket address") || strings.Contains(err.Error(), "address already in use") 	{
+		if strings.Contains(err.Error(), "Only one usage of each socket address") || strings.Contains(err.Error(), "address already in use") {
 			isUsed = true
 		} else {
 			log.Fatal(err.Error())
@@ -168,7 +167,7 @@ func PortUsed() bool {
 //	signal.Notify()
 //}
 
-func CreatePidFile()  {
+func CreatePidFile() {
 	currentPid = os.Getpid()
 	_, err := os.Create(strconv.Itoa(currentPid) + ".pid.vdst")
 	if err != nil {
@@ -188,7 +187,6 @@ func PidFileExisted(filename string) bool {
 
 	return flag
 }
-
 
 func RemovePidFile(filename string) {
 	//f, err := os.Open(filename)
@@ -263,8 +261,7 @@ func main() {
 	sch := make(chan os.Signal, 1)
 	errch := make(chan error, 1)
 
-
-	signal.Notify(sch)   // redirect all signals to sch channel
+	signal.Notify(sch) // redirect all signals to sch channel
 
 	go func() {
 		for {
@@ -278,7 +275,7 @@ func main() {
 	// if port is not used, do the initialization work,
 	// else, do the stop, quit, reload work
 	switch PortUsed() {
-	case false :
+	case false:
 		fmt.Printf("pid: '%d'\n", existedPid)
 		log.Printf("pid: '%d'\n", existedPid)
 
@@ -287,12 +284,12 @@ func main() {
 		info := generateEntryPage(con)
 
 		// remove pid file created on last time
-		if PidFileExisted(strconv.Itoa(existedPid) + ".pid.vdst" ) {
-			RemovePidFile( strconv.Itoa(existedPid) + ".pid.vdst" )
+		if PidFileExisted(strconv.Itoa(existedPid) + ".pid.vdst") {
+			RemovePidFile(strconv.Itoa(existedPid) + ".pid.vdst")
 		}
 
 		serverIPs := GetLocalIpAddrs()
-		var ipAddv4 string    // local ip v4 address
+		var ipAddv4 string // local ip v4 address
 
 		if serverIPs["wireless_ipv4"] != "" {
 			ipAddv4 = serverIPs["wireless_ipv4"]
@@ -314,7 +311,7 @@ func main() {
 			log.Printf("%d -> %s\n", k, v)
 			str := "<a href=\"http://" + ipAddv4 + Port + "/" + strconv.Itoa(k) + "\">" + path.Base(v) + "</a>"
 			hypers = append(hypers, str)
-			http.HandleFunc("/" + strconv.Itoa(k), setLinkSimple(k, v))
+			http.HandleFunc("/"+strconv.Itoa(k), setLinkSimple(k, v))
 		}
 
 		http.HandleFunc("/", setEntryPage(hypers))
@@ -325,17 +322,17 @@ func main() {
 			errch <- http.ListenAndServe(Port, nil)
 		}()
 
-	case true :
+	case true:
 		fmt.Println("port is used!")
 		switch sOpt {
-		case "exit" :
+		case "exit":
 			RemovePidFile(strconv.Itoa(currentPid) + ".pid.vdst")
 			pid2 := existedPid
 			log.Printf("stop option -> received! Exit process '%d'!", pid2)
 			SendSpecificSignal(syscall.SIGQUIT)
 			goto end
 
-		case "reload" :
+		case "reload":
 			log.Println("Get reload signal.")
 			//pid1 := existedPid
 			log.Printf("reload option -> received. Reload config file '%s'\n", configFileName)
@@ -365,7 +362,7 @@ func main() {
 		}
 	}
 
-	end:
+end:
 	fmt.Println("INFO: Bye bye! :)")
 	log.Println("INFO: Bye bye! :)")
 
