@@ -1,5 +1,6 @@
 package main
 
+import "fmt"
 
 // handle log to file
 func LogModuleInit() {
@@ -18,4 +19,5 @@ func LogModuleInit() {
 	//	log.Fatal(err.Error())
 	//}
 	//log.SetOutput(file)
+	fmt.Fprint()
 }
