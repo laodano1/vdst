@@ -51,20 +51,21 @@ func main() {
 		db.Exec("USE testDB")
 	//}
 
-	log.Println("add user record")
+	// add index
+	//db.Model(&User{}).AddUniqueIndex("idx_user_name", "name")
+
+	log.Println("add table record")
 	db.Create(&user)
 
 	//http://gorm.io/docs/query.html
 	log.Println("select record")
 	var arrUser []User
-
 	db.Where("Name = ?", "TestUser").Find(&user).Scan(&arrUser)
 	for k, item := range arrUser {
 		fmt.Printf("id: %d | %s |\n", k, item.Birthday)
 	}
 	//fmt.Printf("users: %d \n", len(arr_user))
 	log.Println("bye bye!")
-
 }
 
 
