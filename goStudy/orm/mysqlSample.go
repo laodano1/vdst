@@ -47,8 +47,8 @@ func main() {
 	//	db.Exec("USE testDB")
 	//	db.Set("gorm:table_options", "ENGINE=InnoDB").CreateTable(&User{})
 	//} else {
-		log.Println("use testDB")
-		db.Exec("USE testDB")
+	log.Println("use testDB")
+	db.Exec("USE testDB")
 	//}
 
 	// add index
@@ -65,7 +65,40 @@ func main() {
 		fmt.Printf("id: %d | %s |\n", k, item.Birthday)
 	}
 	//fmt.Printf("users: %d \n", len(arr_user))
+	
+	if err := DoTransaction(db); err != nil {
+		log.Println("do transaction error:", err)
+	}
+	
 	log.Println("bye bye!")
+}
+
+
+func DoTransaction(db *gorm.DB) error {
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// check begin error
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	// do sqls
+	if err := tx.Create(&User{Name: "Test1"}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+
+
+
+
+
 }
 
 
